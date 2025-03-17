@@ -1,13 +1,24 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, BarChart2, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
+import { Mail, BarChart2, Clock, CheckCircle, XCircle, Eye, Settings } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from 'react-router-dom';
 import Navbar from "@/components/layout/Navbar";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import SmtpConfigModal from "@/components/email/SmtpConfigModal";
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [smtpConfigOpen, setSmtpConfigOpen] = useState(false);
+  
   const recentEmails = [
     { id: 1, subject: 'Weekly Newsletter', recipients: 120, sent: 118, opened: 73, clicked: 42, status: 'completed' },
     { id: 2, subject: 'Product Launch Announcement', recipients: 85, sent: 85, opened: 64, clicked: 37, status: 'completed' },
@@ -16,6 +27,41 @@ const Dashboard = () => {
     { id: 5, subject: 'Company Update', recipients: 75, sent: 72, opened: 45, clicked: 22, status: 'completed' },
   ];
   
+  const handleViewEmail = (id: number) => {
+    navigate(`/email/${id}`);
+  };
+  
+  const handleEditScheduledEmail = (id: number) => {
+    navigate(`/compose?edit=${id}`);
+  };
+  
+  const handleCancelScheduledEmail = (id: number) => {
+    toast({
+      title: "Email Cancelled",
+      description: "The scheduled email has been cancelled",
+    });
+    
+    // In a real app, you would make an API call to cancel the email
+    console.log(`Cancelled email with ID: ${id}`);
+  };
+  
+  // Data for charts
+  const monthlyData = [
+    { name: 'Jan', emails: 65, opened: 40, clicked: 24 },
+    { name: 'Feb', emails: 75, opened: 50, clicked: 30 },
+    { name: 'Mar', emails: 85, opened: 55, clicked: 38 },
+    { name: 'Apr', emails: 100, opened: 70, clicked: 45 },
+    { name: 'May', emails: 120, opened: 80, clicked: 60 },
+    { name: 'Jun', emails: 150, opened: 95, clicked: 70 },
+  ];
+  
+  const engagementData = [
+    { name: 'Opened', value: 280 },
+    { name: 'Not Opened', value: 145 },
+  ];
+  
+  const COLORS = ['#0088FE', '#00C49F'];
+  
   return (
     <>
       <Navbar />
@@ -23,12 +69,20 @@ const Dashboard = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-bold">Email Dashboard</h1>
-            <p className="text-muted-foreground">Monitor your email campaigns and performance</p>
+            <p className="text-muted-foreground">
+              {user ? `Welcome back, ${user.name}!` : 'Monitor your email campaigns and performance'}
+            </p>
           </div>
-          <Button onClick={() => navigate('/compose')}>
-            <Mail className="mr-2 h-4 w-4" />
-            Compose New Email
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setSmtpConfigOpen(true)}>
+              <Settings className="mr-2 h-4 w-4" />
+              Configure SMTP
+            </Button>
+            <Button onClick={() => navigate('/compose')}>
+              <Mail className="mr-2 h-4 w-4" />
+              Compose New Email
+            </Button>
+          </div>
         </div>
         
         {/* Overview Cards */}
@@ -105,7 +159,13 @@ const Dashboard = () => {
                             )}
                           </td>
                           <td className="text-right py-3 px-2">
-                            <Button variant="ghost" size="sm">View</Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleViewEmail(email.id)}
+                            >
+                              View
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -146,8 +206,20 @@ const Dashboard = () => {
                               {new Date(email.scheduledFor as string).toLocaleString()}
                             </td>
                             <td className="text-right py-3 px-2">
-                              <Button variant="outline" size="sm" className="mr-2">Edit</Button>
-                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="mr-2"
+                                onClick={() => handleEditScheduledEmail(email.id)}
+                              >
+                                Edit
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleCancelScheduledEmail(email.id)}
+                              >
                                 Cancel
                               </Button>
                             </td>
@@ -169,14 +241,57 @@ const Dashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px] flex items-center justify-center bg-muted rounded-md">
-                  <p className="text-muted-foreground">Analytics charts will be displayed here</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Monthly Performance Chart */}
+                  <div className="h-[300px]">
+                    <h3 className="text-lg font-medium mb-4">Monthly Performance</h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={monthlyData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="emails" stroke="#8884d8" />
+                        <Line type="monotone" dataKey="opened" stroke="#82ca9d" />
+                        <Line type="monotone" dataKey="clicked" stroke="#ffc658" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  {/* Open Rate Pie Chart */}
+                  <div className="h-[300px]">
+                    <h3 className="text-lg font-medium mb-4">Overall Open Rate</h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={engagementData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {engagementData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* SMTP Configuration Modal */}
+      <SmtpConfigModal open={smtpConfigOpen} onOpenChange={setSmtpConfigOpen} />
     </>
   );
 };
@@ -198,4 +313,10 @@ const StatCard = ({ title, value, icon }: { title: string; value: string; icon: 
   );
 };
 
-export default Dashboard;
+const DashboardPage = () => (
+  <ProtectedRoute>
+    <Dashboard />
+  </ProtectedRoute>
+);
+
+export default DashboardPage;

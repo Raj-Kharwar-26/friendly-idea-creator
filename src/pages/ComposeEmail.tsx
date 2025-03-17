@@ -23,13 +23,14 @@ import {
   Save
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import EmailSendOptions from "@/components/email/EmailSendOptions";
 import RecipientInput from "@/components/email/RecipientInput";
 import AttachmentSelector from "@/components/email/AttachmentSelector";
 import ScheduleOptions from "@/components/email/ScheduleOptions";
 import Navbar from "@/components/layout/Navbar";
 import { sendEmail, EmailData } from '@/services/emailService';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 // Form validation schema
 const formSchema = z.object({
@@ -42,6 +43,9 @@ type FormValues = z.infer<typeof formSchema>;
 const ComposeEmail = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('edit');
+
   const [showSchedule, setShowSchedule] = useState(false);
   const [scheduledTime, setScheduledTime] = useState<Date | null>(null);
   const [selectedSendOption, setSelectedSendOption] = useState<'temp' | 'own'>('temp');
@@ -49,6 +53,24 @@ const ComposeEmail = () => {
   const [attachments, setAttachments] = useState<{name: string; type: string; previewMode: boolean; file?: File}[]>([]);
   const [senderEmail, setSenderEmail] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // If we're editing a scheduled email, load its data
+  React.useEffect(() => {
+    if (editId) {
+      // In a real app, you would fetch the email data from your backend
+      // For now, we'll use mock data for the scheduled email with ID 3
+      if (editId === '3') {
+        setRecipients(['customer1@example.com', 'customer2@example.com', 'customer3@example.com']);
+        
+        const scheduledDate = new Date('2023-07-15T14:30:00Z');
+        setScheduledTime(scheduledDate);
+        setShowSchedule(true);
+        
+        form.setValue('subject', 'Customer Feedback Survey');
+        form.setValue('message', 'Dear customer,\n\nWe would appreciate your feedback on our recent service. Please take a moment to complete our survey.\n\nThank you!');
+      }
+    }
+  }, [editId]);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -140,9 +162,11 @@ const ComposeEmail = () => {
       <div className="container max-w-4xl mx-auto py-10 px-4">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-2xl">Compose Email</CardTitle>
+            <CardTitle className="text-2xl">{editId ? 'Edit Email' : 'Compose Email'}</CardTitle>
             <CardDescription>
-              Create and send emails to multiple recipients at once
+              {editId 
+                ? 'Update your scheduled email' 
+                : 'Create and send emails to multiple recipients at once'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -217,12 +241,17 @@ const ComposeEmail = () => {
                 
                 {/* Submit Button */}
                 <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => navigate('/dashboard')}>
+                    Cancel
+                  </Button>
                   <Button type="button" variant="outline">
                     <Save className="mr-2 h-4 w-4" /> Save Draft
                   </Button>
                   <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting ? (
                       "Processing..."
+                    ) : editId ? (
+                      "Update Email"
                     ) : scheduledTime ? (
                       <>
                         <Clock className="mr-2 h-4 w-4" /> Schedule
@@ -243,4 +272,11 @@ const ComposeEmail = () => {
   );
 };
 
-export default ComposeEmail;
+// Protected wrapper
+const ProtectedComposeEmail = () => (
+  <ProtectedRoute>
+    <ComposeEmail />
+  </ProtectedRoute>
+);
+
+export default ProtectedComposeEmail;

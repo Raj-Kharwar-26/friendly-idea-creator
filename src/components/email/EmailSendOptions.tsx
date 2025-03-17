@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, UserCircle, Copy, Check, RefreshCw } from "lucide-react";
+import { Mail, UserCircle, Copy, Check, RefreshCw, Settings } from "lucide-react";
 import { generateTempEmail, TempEmailResponse } from '@/services/emailService';
 import { useToast } from "@/hooks/use-toast";
+import SmtpConfigModal from "./SmtpConfigModal";
 
 interface EmailSendOptionsProps {
   selected: 'temp' | 'own';
@@ -21,6 +22,31 @@ const EmailSendOptions: React.FC<EmailSendOptionsProps> = ({
   const [tempEmail, setTempEmail] = useState<TempEmailResponse | null>(null);
   const [senderEmail, setSenderEmail] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isSmtpConfigured, setIsSmtpConfigured] = useState(false);
+  const [isTempEmailConfigured, setIsTempEmailConfigured] = useState(false);
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+
+  // Check if SMTP is configured
+  useEffect(() => {
+    const smtpConfig = localStorage.getItem('smtpConfig');
+    setIsSmtpConfigured(!!smtpConfig);
+    
+    const tempEmailConfig = localStorage.getItem('tempEmailConfig');
+    setIsTempEmailConfigured(!!tempEmailConfig);
+    
+    // If SMTP is configured, use the saved username as the sender email
+    if (smtpConfig && selected === 'own') {
+      try {
+        const config = JSON.parse(smtpConfig);
+        setSenderEmail(config.username || '');
+        if (onSenderEmailChange) {
+          onSenderEmailChange(config.username || '');
+        }
+      } catch (e) {
+        console.error("Error parsing SMTP config", e);
+      }
+    }
+  }, [selected, onSenderEmailChange, configModalOpen]);
 
   // Generate temp email when selected
   useEffect(() => {
@@ -114,9 +140,21 @@ const EmailSendOptions: React.FC<EmailSendOptionsProps> = ({
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Expires: {new Date(tempEmail.expiresAt).toLocaleString()}
-          </p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-muted-foreground">
+              Expires: {new Date(tempEmail.expiresAt).toLocaleString()}
+            </p>
+            {!isTempEmailConfigured && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs"
+                onClick={() => setConfigModalOpen(true)}
+              >
+                <Settings className="h-3 w-3 mr-1" /> Configure API
+              </Button>
+            )}
+          </div>
         </div>
       )}
       
@@ -135,11 +173,21 @@ const EmailSendOptions: React.FC<EmailSendOptionsProps> = ({
             Connect your email provider via SMTP settings.
             This allows sending mail from your own domain with higher deliverability.
           </p>
-          <Button variant="outline" size="sm">
-            Configure SMTP
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setConfigModalOpen(true)}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            {isSmtpConfigured ? "Update SMTP Settings" : "Configure SMTP"}
           </Button>
         </div>
       )}
+      
+      <SmtpConfigModal 
+        open={configModalOpen} 
+        onOpenChange={setConfigModalOpen} 
+      />
     </div>
   );
 };

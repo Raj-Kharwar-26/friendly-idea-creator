@@ -16,6 +16,19 @@ export interface TempEmailResponse {
   expiresAt: Date;
 }
 
+export interface SmtpConfig {
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  encryption: 'none' | 'ssl' | 'tls';
+}
+
+export interface TempEmailConfig {
+  apiKey: string;
+  domain: string;
+}
+
 // Simulate generating a temporary email
 export const generateTempEmail = (): TempEmailResponse => {
   const randomString = Math.random().toString(36).substring(2, 10);
@@ -31,10 +44,58 @@ export const generateTempEmail = (): TempEmailResponse => {
   };
 };
 
+// Get SMTP config from localStorage
+export const getSmtpConfig = (): SmtpConfig | null => {
+  const config = localStorage.getItem('smtpConfig');
+  if (!config) return null;
+  
+  try {
+    return JSON.parse(config) as SmtpConfig;
+  } catch (error) {
+    console.error('Error parsing SMTP config:', error);
+    return null;
+  }
+};
+
+// Get temporary email API config from localStorage
+export const getTempEmailConfig = (): TempEmailConfig | null => {
+  const config = localStorage.getItem('tempEmailConfig');
+  if (!config) return null;
+  
+  try {
+    return JSON.parse(config) as TempEmailConfig;
+  } catch (error) {
+    console.error('Error parsing temporary email config:', error);
+    return null;
+  }
+};
+
 // Send email function
 export const sendEmail = async (emailData: EmailData): Promise<boolean> => {
   try {
     console.log('Sending email:', emailData);
+    
+    // Check if configs are available based on the send option
+    if (emailData.sendOption === 'own') {
+      const smtpConfig = getSmtpConfig();
+      if (!smtpConfig) {
+        toast({
+          title: "SMTP not configured",
+          description: "Please configure your SMTP settings before sending emails",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      console.log('Using SMTP configuration:', smtpConfig);
+    } else {
+      const tempEmailConfig = getTempEmailConfig();
+      if (!tempEmailConfig) {
+        console.log('No temporary email API configured, using mock sender');
+      } else {
+        console.log('Using temporary email API configuration:', tempEmailConfig);
+      }
+    }
     
     // In a real implementation, we would send API request to backend
     // Simulating API call with a timeout
