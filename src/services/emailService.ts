@@ -19,7 +19,7 @@ export interface TempEmailResponse {
 // Simulate generating a temporary email
 export const generateTempEmail = (): TempEmailResponse => {
   const randomString = Math.random().toString(36).substring(2, 10);
-  const tempEmail = `temp-${randomString}@mailautomator.com`;
+  const tempEmail = `temp-${randomString}@gmail.com`;
   
   // Set expiration time to 1 hour from now
   const expiresAt = new Date();
