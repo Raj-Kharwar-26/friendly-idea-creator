@@ -141,7 +141,7 @@ const ComposeEmail = () => {
                       />
                     </FormControl>
                     <FormDescription>
-                      Use {{name}} and {{company}} placeholders for personalization
+                      Use {"{{name}}"} and {"{{company}}"} placeholders for personalization
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
