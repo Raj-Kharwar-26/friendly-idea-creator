@@ -82,9 +82,10 @@ const ComposeEmail = () => {
     setIsSubmitting(true);
 
     try {
-      // Prepare email data
+      // Prepare email data - ensure all required fields are provided
       const emailData: EmailData = {
-        ...data,
+        subject: data.subject,   // Explicitly assign the subject from form data
+        message: data.message,   // Explicitly assign the message from form data
         recipients,
         sendOption: selectedSendOption,
         scheduledTime,
