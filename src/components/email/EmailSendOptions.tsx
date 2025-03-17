@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, UserCircle, Copy, Check } from "lucide-react";
+import { Mail, UserCircle, Copy, Check, RefreshCw } from "lucide-react";
 import { generateTempEmail, TempEmailResponse } from '@/services/emailService';
 import { useToast } from "@/hooks/use-toast";
 
@@ -51,6 +51,17 @@ const EmailSendOptions: React.FC<EmailSendOptionsProps> = ({
       setTimeout(() => setCopied(false), 2000);
     }
   };
+  
+  // Regenerate a new temporary email
+  const regenerateTempEmail = () => {
+    const newTempEmail = generateTempEmail();
+    setTempEmail(newTempEmail);
+    setCopied(false);
+    toast({
+      title: "New temporary email generated",
+      description: "Your temporary email has been refreshed",
+    });
+  };
 
   return (
     <div className="space-y-2">
@@ -89,8 +100,18 @@ const EmailSendOptions: React.FC<EmailSendOptionsProps> = ({
               variant="outline"
               size="icon"
               onClick={copyTempEmail}
+              title="Copy to clipboard"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={regenerateTempEmail}
+              title="Generate new email"
+            >
+              <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
