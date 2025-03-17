@@ -1,97 +1,111 @@
 
-import React from 'react';
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, Upload, Clock, BarChart, Shield } from "lucide-react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
+import { Mail, BarChart2, Clock, Users, Shield, Laptop } from "lucide-react";
+import Navbar from "@/components/layout/Navbar";
 
 const Index = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <Navbar />
+      
       {/* Hero Section */}
-      <section className="container max-w-6xl mx-auto pt-12 pb-8 px-4">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">Mail Automator</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Send up to 300 emails at once with powerful customization options.
-            Perfect for businesses, marketers, and developers.
-          </p>
-          <div className="mt-8">
-            <Button 
-              size="lg" 
-              className="mr-4"
-              onClick={() => navigate('/compose')}
-            >
-              <Mail className="mr-2" /> Compose Email
-            </Button>
-            <Button 
-              variant="outline" 
-              size="lg"
-              onClick={() => navigate('/dashboard')}
-            >
-              Dashboard
-            </Button>
-          </div>
+      <section className="container mx-auto py-20 px-4 flex flex-col items-center text-center">
+        <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-3xl mb-6">
+          Powerful Email Automation for Everyone
+        </h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mb-10">
+          Send up to 300 emails at once with customization options, tracking, and scheduling. Perfect for businesses, marketers, and developers.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Button size="lg" onClick={() => navigate("/compose")}>
+            <Mail className="mr-2 h-5 w-5" />
+            Start Composing
+          </Button>
+          <Button size="lg" variant="outline" onClick={() => navigate("/dashboard")}>
+            <BarChart2 className="mr-2 h-5 w-5" />
+            View Dashboard
+          </Button>
         </div>
+      </section>
+      
+      {/* Features Section */}
+      <section className="container mx-auto py-20 px-4">
+        <h2 className="text-3xl font-bold text-center mb-16">Key Features</h2>
         
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <FeatureCard 
-            icon={<Mail />}
-            title="Email Sending Options"
-            description="Use temporary emails or connect your own email provider via SMTP."
+            icon={<Mail className="h-12 w-12 p-2 bg-primary/10 text-primary rounded-lg" />}
+            title="Multiple Sending Options"
+            description="Use a temporary email or connect your own email via SMTP for better deliverability."
           />
+          
           <FeatureCard 
-            icon={<Upload />}
+            icon={<Users className="h-12 w-12 p-2 bg-blue-500/10 text-blue-500 rounded-lg" />}
             title="Bulk Email Sending"
-            description="Send to multiple recipients with personalized content using placeholders."
+            description="Send to multiple recipients at once with personalization for each recipient."
           />
+          
           <FeatureCard 
-            icon={<Clock />}
-            title="Scheduled Emails"
-            description="Set a future time to automatically send your emails."
-          />
-          <FeatureCard 
-            icon={<Shield />}
-            title="Security & Anti-Spam"
-            description="SPF, DKIM, and DMARC authentication to ensure deliverability."
-          />
-          <FeatureCard 
-            icon={<BarChart />}
-            title="Tracking Analytics"
-            description="Monitor open rates, click rates, and delivery status."
-          />
-          <FeatureCard 
-            icon={<Mail />}
+            icon={<Laptop className="h-12 w-12 p-2 bg-purple-500/10 text-purple-500 rounded-lg" />}
             title="Attachment Options"
-            description="Attach files as preview mode (inline) or simple attachments."
+            description="Display images inline or attach files for recipients to download."
           />
+          
+          <FeatureCard 
+            icon={<Clock className="h-12 w-12 p-2 bg-orange-500/10 text-orange-500 rounded-lg" />}
+            title="Scheduled Sending"
+            description="Set a specific date and time to send your emails automatically."
+          />
+          
+          <FeatureCard 
+            icon={<BarChart2 className="h-12 w-12 p-2 bg-green-500/10 text-green-500 rounded-lg" />}
+            title="Email Analytics"
+            description="Track open rates, click rates, and other important engagement metrics."
+          />
+          
+          <FeatureCard 
+            icon={<Shield className="h-12 w-12 p-2 bg-red-500/10 text-red-500 rounded-lg" />}
+            title="Security & Anti-Spam"
+            description="SPF, DKIM, and DMARC authentication to ensure emails don't land in spam."
+          />
+        </div>
+      </section>
+      
+      {/* Call to Action */}
+      <section className="container mx-auto py-20 px-4 text-center">
+        <div className="max-w-3xl mx-auto bg-muted p-8 md:p-12 rounded-2xl">
+          <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
+          <p className="text-muted-foreground mb-8">
+            Start sending professional emails and tracking engagement today.
+          </p>
+          <Button size="lg" onClick={() => navigate("/compose")}>
+            Create Your First Email
+          </Button>
         </div>
       </section>
     </div>
   );
 };
 
-// Feature card component
-const FeatureCard = ({ icon, title, description }: { 
+const FeatureCard = ({ 
+  icon, 
+  title, 
+  description 
+}: { 
   icon: React.ReactNode; 
   title: string; 
   description: string 
 }) => {
   return (
-    <Card className="h-full transition-all hover:shadow-md">
-      <CardHeader>
-        <div className="text-primary mb-2">{icon}</div>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <CardDescription className="text-gray-600 text-base">
-          {description}
-        </CardDescription>
-      </CardContent>
-    </Card>
+    <div className="border rounded-lg p-6 transition-all hover:shadow-md">
+      <div className="mb-4">{icon}</div>
+      <h3 className="text-xl font-semibold mb-2">{title}</h3>
+      <p className="text-muted-foreground">{description}</p>
+    </div>
   );
 };
 
