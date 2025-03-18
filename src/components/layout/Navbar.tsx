@@ -72,7 +72,7 @@ const Navbar = () => {
                 </Link>
               </Button>
               
-              <Button variant="primary" asChild>
+              <Button variant="default" asChild>
                 <Link to="/signup">Sign Up</Link>
               </Button>
             </>
