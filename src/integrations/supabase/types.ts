@@ -9,7 +9,173 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      email_campaigns: {
+        Row: {
+          attachments: Json | null
+          created_at: string | null
+          id: string
+          message: string
+          recipients: Json
+          scheduled_time: string | null
+          send_option: string
+          sender_email: string | null
+          status: string
+          subject: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          created_at?: string | null
+          id?: string
+          message: string
+          recipients: Json
+          scheduled_time?: string | null
+          send_option: string
+          sender_email?: string | null
+          status?: string
+          subject: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          created_at?: string | null
+          id?: string
+          message?: string
+          recipients?: Json
+          scheduled_time?: string | null
+          send_option?: string
+          sender_email?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      email_stats: {
+        Row: {
+          campaign_id: string
+          clicked: number | null
+          failed: number | null
+          id: string
+          opened: number | null
+          sent: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          clicked?: number | null
+          failed?: number | null
+          id?: string
+          opened?: number | null
+          sent?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          clicked?: number | null
+          failed?: number | null
+          id?: string
+          opened?: number | null
+          sent?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_stats_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id: string
+          name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
+      smtp_configs: {
+        Row: {
+          created_at: string | null
+          encryption: string
+          host: string
+          id: string
+          password: string
+          port: string
+          updated_at: string | null
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          encryption: string
+          host: string
+          id?: string
+          password: string
+          port: string
+          updated_at?: string | null
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          encryption?: string
+          host?: string
+          id?: string
+          password?: string
+          port?: string
+          updated_at?: string | null
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      temp_email_configs: {
+        Row: {
+          api_key: string
+          created_at: string | null
+          domain: string
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string | null
+          domain: string
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string | null
+          domain?: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

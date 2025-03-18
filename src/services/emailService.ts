@@ -1,5 +1,6 @@
 
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface EmailData {
   subject: string;
@@ -29,7 +30,7 @@ export interface TempEmailConfig {
   domain: string;
 }
 
-// Simulate generating a temporary email
+// Generate a temporary email
 export const generateTempEmail = (): TempEmailResponse => {
   const randomString = Math.random().toString(36).substring(2, 10);
   const tempEmail = `temp-${randomString}@gmail.com`;
@@ -44,40 +45,112 @@ export const generateTempEmail = (): TempEmailResponse => {
   };
 };
 
-// Get SMTP config from localStorage
-export const getSmtpConfig = (): SmtpConfig | null => {
-  const config = localStorage.getItem('smtpConfig');
-  if (!config) return null;
-  
+// Get SMTP config from Supabase
+export const getSmtpConfig = async (): Promise<SmtpConfig | null> => {
   try {
-    return JSON.parse(config) as SmtpConfig;
+    const { data, error } = await supabase
+      .from('smtp_configs')
+      .select('*')
+      .single();
+    
+    if (error) {
+      console.error('Error fetching SMTP config:', error);
+      return null;
+    }
+    
+    return {
+      host: data.host,
+      port: data.port,
+      username: data.username,
+      password: data.password,
+      encryption: data.encryption
+    };
   } catch (error) {
     console.error('Error parsing SMTP config:', error);
     return null;
   }
 };
 
-// Get temporary email API config from localStorage
-export const getTempEmailConfig = (): TempEmailConfig | null => {
-  const config = localStorage.getItem('tempEmailConfig');
-  if (!config) return null;
-  
+// Save SMTP config to Supabase
+export const saveSmtpConfig = async (config: SmtpConfig): Promise<boolean> => {
   try {
-    return JSON.parse(config) as TempEmailConfig;
+    const { error } = await supabase.from('smtp_configs').upsert(
+      {
+        host: config.host,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+        encryption: config.encryption
+      },
+      { onConflict: 'user_id' }
+    );
+    
+    if (error) {
+      console.error('Error saving SMTP config:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving SMTP config:', error);
+    return false;
+  }
+};
+
+// Get temporary email API config from Supabase
+export const getTempEmailConfig = async (): Promise<TempEmailConfig | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('temp_email_configs')
+      .select('*')
+      .single();
+    
+    if (error) {
+      console.error('Error fetching temporary email config:', error);
+      return null;
+    }
+    
+    return {
+      apiKey: data.api_key,
+      domain: data.domain
+    };
   } catch (error) {
     console.error('Error parsing temporary email config:', error);
     return null;
   }
 };
 
-// Send email function
+// Save temporary email API config to Supabase
+export const saveTempEmailConfig = async (config: TempEmailConfig): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('temp_email_configs').upsert(
+      {
+        api_key: config.apiKey,
+        domain: config.domain
+      },
+      { onConflict: 'user_id' }
+    );
+    
+    if (error) {
+      console.error('Error saving temporary email config:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving temporary email config:', error);
+    return false;
+  }
+};
+
+// Send email function using Supabase Edge Function
 export const sendEmail = async (emailData: EmailData): Promise<boolean> => {
   try {
     console.log('Sending email:', emailData);
     
     // Check if configs are available based on the send option
     if (emailData.sendOption === 'own') {
-      const smtpConfig = getSmtpConfig();
+      const smtpConfig = await getSmtpConfig();
       if (!smtpConfig) {
         toast({
           title: "SMTP not configured",
@@ -87,32 +160,113 @@ export const sendEmail = async (emailData: EmailData): Promise<boolean> => {
         return false;
       }
       
-      console.log('Using SMTP configuration:', smtpConfig);
+      console.log('Using SMTP configuration');
     } else {
-      const tempEmailConfig = getTempEmailConfig();
+      const tempEmailConfig = await getTempEmailConfig();
       if (!tempEmailConfig) {
         console.log('No temporary email API configured, using mock sender');
       } else {
-        console.log('Using temporary email API configuration:', tempEmailConfig);
+        console.log('Using temporary email API configuration');
       }
     }
     
-    // In a real implementation, we would send API request to backend
-    // Simulating API call with a timeout
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Check if it's scheduled for later
-    if (emailData.scheduledTime && emailData.scheduledTime > new Date()) {
-      console.log(`Email scheduled for ${emailData.scheduledTime.toLocaleString()}`);
-      // In a real implementation, we would save this to a database for later processing
-      return true;
+    // Get authentication token for the edge function
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to send emails",
+        variant: "destructive",
+      });
+      return false;
     }
     
-    // Simulate successful email sending
+    // Call the send-email edge function
+    const response = await fetch(`${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        subject: emailData.subject,
+        message: emailData.message,
+        recipients: emailData.recipients,
+        sendOption: emailData.sendOption,
+        scheduledTime: emailData.scheduledTime ? emailData.scheduledTime.toISOString() : null,
+        attachments: emailData.attachments.map(att => ({
+          name: att.name,
+          type: att.type,
+          previewMode: att.previewMode
+        })),
+        senderEmail: emailData.senderEmail
+      }),
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      console.error('Error from send-email function:', result.error);
+      toast({
+        title: "Failed to send email",
+        description: result.error || "An unexpected error occurred",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    console.log('Email sent successfully:', result);
     return true;
   } catch (error) {
     console.error('Error sending email:', error);
     return false;
+  }
+};
+
+// Get email campaigns from Supabase
+export const getEmailCampaigns = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('email_campaigns')
+      .select(`
+        *,
+        email_stats(*)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching email campaigns:', error);
+      return [];
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching email campaigns:', error);
+    return [];
+  }
+};
+
+// Get a single email campaign by ID
+export const getEmailCampaign = async (id: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('email_campaigns')
+      .select(`
+        *,
+        email_stats(*)
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching email campaign:', error);
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching email campaign:', error);
+    return null;
   }
 };
 
@@ -121,8 +275,8 @@ export const uploadAttachment = async (file: File): Promise<{name: string; type:
   try {
     console.log('Uploading file:', file.name);
     
-    // In a real implementation, we would upload to S3 or similar
-    // Simulating file upload with a timeout
+    // TODO: Implement file upload to Supabase Storage
+    // For now, simulate file upload with a timeout
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     const type = file.type.includes('image') ? 'image' : 'document';
@@ -134,5 +288,26 @@ export const uploadAttachment = async (file: File): Promise<{name: string; type:
   } catch (error) {
     console.error('Error uploading attachment:', error);
     throw error;
+  }
+};
+
+// Cancel scheduled email
+export const cancelScheduledEmail = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('email_campaigns')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .eq('status', 'scheduled');
+    
+    if (error) {
+      console.error('Error cancelling scheduled email:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error cancelling scheduled email:', error);
+    return false;
   }
 };

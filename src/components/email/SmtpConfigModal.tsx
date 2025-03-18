@@ -1,32 +1,21 @@
 
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from '@/hooks/use-toast';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const smtpFormSchema = z.object({
-  host: z.string().min(1, { message: "SMTP host is required" }),
-  port: z.string().refine((val) => !isNaN(parseInt(val)), { message: "Port must be a number" }),
-  username: z.string().min(1, { message: "Username is required" }),
-  password: z.string().min(1, { message: "Password is required" }),
-  encryption: z.enum(["none", "ssl", "tls"]),
-});
-
-type SmtpFormValues = z.infer<typeof smtpFormSchema>;
-
-const tempEmailFormSchema = z.object({
-  apiKey: z.string().min(1, { message: "API key is required" }),
-  domain: z.string().min(1, { message: "Domain is required" }),
-});
-
-type TempEmailFormValues = z.infer<typeof tempEmailFormSchema>;
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { saveSmtpConfig, saveTempEmailConfig, getSmtpConfig, getTempEmailConfig } from '@/services/emailService';
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SmtpConfigModalProps {
   open: boolean;
@@ -35,194 +24,265 @@ interface SmtpConfigModalProps {
 
 const SmtpConfigModal: React.FC<SmtpConfigModalProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<string>("own");
-
-  const smtpForm = useForm<SmtpFormValues>({
-    resolver: zodResolver(smtpFormSchema),
-    defaultValues: {
-      host: "",
-      port: "587",
-      username: "",
-      password: "",
-      encryption: "tls",
-    },
-  });
-
-  const tempEmailForm = useForm<TempEmailFormValues>({
-    resolver: zodResolver(tempEmailFormSchema),
-    defaultValues: {
-      apiKey: "",
-      domain: "mail-automator.com",
-    },
-  });
-
-  const onSmtpSubmit = (data: SmtpFormValues) => {
-    console.log('SMTP Configuration:', data);
-    
-    // Save to localStorage for demo purposes
-    localStorage.setItem('smtpConfig', JSON.stringify(data));
-    
-    toast({
-      title: "SMTP Configured",
-      description: "Your SMTP settings have been saved successfully",
-    });
-    
-    onOpenChange(false);
+  const { user } = useAuth();
+  
+  // SMTP Configuration
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [encryption, setEncryption] = useState<'none' | 'ssl' | 'tls'>('tls');
+  
+  // Temporary Email API Configuration
+  const [apiKey, setApiKey] = useState("");
+  const [domain, setDomain] = useState("");
+  
+  const [isSmtpLoading, setIsSmtpLoading] = useState(false);
+  const [isTempEmailLoading, setIsTempEmailLoading] = useState(false);
+  
+  // Load saved configurations
+  useEffect(() => {
+    if (open && user) {
+      loadConfigurations();
+    }
+  }, [open, user]);
+  
+  const loadConfigurations = async () => {
+    try {
+      // Load SMTP config
+      const smtpConfig = await getSmtpConfig();
+      if (smtpConfig) {
+        setHost(smtpConfig.host);
+        setPort(smtpConfig.port);
+        setUsername(smtpConfig.username);
+        setPassword(smtpConfig.password);
+        setEncryption(smtpConfig.encryption);
+      }
+      
+      // Load temporary email config
+      const tempEmailConfig = await getTempEmailConfig();
+      if (tempEmailConfig) {
+        setApiKey(tempEmailConfig.apiKey);
+        setDomain(tempEmailConfig.domain);
+      }
+    } catch (error) {
+      console.error('Error loading configurations:', error);
+    }
   };
-
-  const onTempEmailSubmit = (data: TempEmailFormValues) => {
-    console.log('Temporary Email Configuration:', data);
+  
+  const handleSaveSmtp = async () => {
+    if (!host || !port || !username || !password) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all SMTP fields",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    // Save to localStorage for demo purposes
-    localStorage.setItem('tempEmailConfig', JSON.stringify(data));
+    setIsSmtpLoading(true);
     
-    toast({
-      title: "Temporary Email Configured",
-      description: "Your temporary email API settings have been saved successfully",
-    });
-    
-    onOpenChange(false);
+    try {
+      const success = await saveSmtpConfig({
+        host,
+        port,
+        username,
+        password,
+        encryption
+      });
+      
+      if (success) {
+        toast({
+          title: "SMTP Configured",
+          description: "Your SMTP settings have been saved",
+        });
+        onOpenChange(false);
+      } else {
+        toast({
+          title: "Configuration Failed",
+          description: "Failed to save SMTP settings",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving SMTP config:', error);
+      toast({
+        title: "Configuration Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSmtpLoading(false);
+    }
   };
-
+  
+  const handleSaveTempEmail = async () => {
+    if (!apiKey || !domain) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in both API key and domain",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsTempEmailLoading(true);
+    
+    try {
+      const success = await saveTempEmailConfig({
+        apiKey,
+        domain
+      });
+      
+      if (success) {
+        toast({
+          title: "API Configured",
+          description: "Your temporary email API settings have been saved",
+        });
+        onOpenChange(false);
+      } else {
+        toast({
+          title: "Configuration Failed",
+          description: "Failed to save temporary email API settings",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving temporary email config:', error);
+      toast({
+        title: "Configuration Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTempEmailLoading(false);
+    }
+  };
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>SMTP Configuration</DialogTitle>
+          <DialogTitle>Email Settings</DialogTitle>
           <DialogDescription>
-            Configure your email sending settings to start sending real emails
+            Configure your email service settings
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="own" value={activeTab} onValueChange={setActiveTab}>
+        <Tabs defaultValue="smtp" className="pt-2">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="own">Your Own Email (SMTP)</TabsTrigger>
-            <TabsTrigger value="temp">Temporary Email API</TabsTrigger>
+            <TabsTrigger value="smtp">SMTP Settings</TabsTrigger>
+            <TabsTrigger value="temp-email">Temporary Email API</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="own" className="space-y-4">
-            <Form {...smtpForm}>
-              <form onSubmit={smtpForm.handleSubmit(onSmtpSubmit)} className="space-y-4">
-                <FormField
-                  control={smtpForm.control}
-                  name="host"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SMTP Host</FormLabel>
-                      <FormControl>
-                        <Input placeholder="smtp.gmail.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={smtpForm.control}
-                  name="port"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Port</FormLabel>
-                      <FormControl>
-                        <Input placeholder="587" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={smtpForm.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input placeholder="your-email@gmail.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={smtpForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="App password or email password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={smtpForm.control}
-                  name="encryption"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Encryption</FormLabel>
-                      <FormControl>
-                        <select
-                          className="w-full p-2 border rounded-md"
-                          {...field}
-                        >
-                          <option value="none">None</option>
-                          <option value="ssl">SSL</option>
-                          <option value="tls">TLS</option>
-                        </select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <DialogFooter>
-                  <Button type="submit">Save SMTP Settings</Button>
-                </DialogFooter>
-              </form>
-            </Form>
+          <TabsContent value="smtp" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="host">SMTP Host</Label>
+              <Input
+                id="host"
+                value={host}
+                onChange={(e) => setHost(e.target.value)}
+                placeholder="smtp.gmail.com"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="port">Port</Label>
+              <Input
+                id="port"
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                placeholder="587"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="your-email@gmail.com"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="encryption">Encryption</Label>
+              <Select 
+                value={encryption} 
+                onValueChange={(value) => setEncryption(value as 'none' | 'ssl' | 'tls')}
+              >
+                <SelectTrigger id="encryption">
+                  <SelectValue placeholder="Select encryption" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="ssl">SSL</SelectItem>
+                  <SelectItem value="tls">TLS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <DialogFooter>
+              <Button 
+                onClick={handleSaveSmtp} 
+                className="mt-4"
+                disabled={isSmtpLoading}
+              >
+                {isSmtpLoading ? "Saving..." : "Save SMTP Settings"}
+              </Button>
+            </DialogFooter>
           </TabsContent>
           
-          <TabsContent value="temp" className="space-y-4">
-            <Form {...tempEmailForm}>
-              <form onSubmit={tempEmailForm.handleSubmit(onTempEmailSubmit)} className="space-y-4">
-                <FormField
-                  control={tempEmailForm.control}
-                  name="apiKey"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>API Key</FormLabel>
-                      <FormControl>
-                        <Input placeholder="your-api-key" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={tempEmailForm.control}
-                  name="domain"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Domain</FormLabel>
-                      <FormControl>
-                        <Input placeholder="mail-automator.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <DialogFooter>
-                  <Button type="submit">Save API Settings</Button>
-                </DialogFooter>
-              </form>
-            </Form>
+          <TabsContent value="temp-email" className="space-y-4 mt-4">
+            <div className="bg-muted rounded-md p-4 mb-2">
+              <p className="text-sm">
+                Configure your temporary email service API settings.
+                You'll need an API key and domain from a service like
+                Mailgun, SendGrid, or similar.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="apiKey">API Key</Label>
+              <Input
+                id="apiKey"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="key-xxxxxxxxxxxxxxxxxxxxxxx"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="domain">Domain</Label>
+              <Input
+                id="domain"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="mail.yourdomain.com"
+              />
+            </div>
+            
+            <DialogFooter>
+              <Button 
+                onClick={handleSaveTempEmail} 
+                className="mt-4"
+                disabled={isTempEmailLoading}
+              >
+                {isTempEmailLoading ? "Saving..." : "Save API Settings"}
+              </Button>
+            </DialogFooter>
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -9,31 +9,31 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { AlertCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(8, { message: "Password must be at least 8 characters." }),
+  confirmPassword: z.string().min(8, { message: "Please confirm your password." }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-const SignUpForm = () => {
+const ResetPasswordForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const { signup } = useAuth();
+  const { updatePassword } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      email: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
@@ -42,29 +42,29 @@ const SignUpForm = () => {
     setAuthError(null);
     
     try {
-      const { error } = await signup(data.email, data.password, data.name);
+      const { error } = await updatePassword(data.password);
       
       if (error) {
         setAuthError(error.message);
         toast({
-          title: "Registration failed",
+          title: "Password reset failed",
           description: error.message,
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Account created successfully",
-          description: "Welcome to Mail Automator!",
+          title: "Password updated successfully",
+          description: "Your password has been reset. You can now log in with your new password.",
         });
         
-        // Navigate to dashboard (auth context will handle the session)
-        navigate('/dashboard');
+        // Navigate to login page
+        navigate('/login');
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Password update error:', error);
       toast({
-        title: "Registration failed",
-        description: "There was a problem creating your account.",
+        title: "Password reset failed",
+        description: "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -75,9 +75,9 @@ const SignUpForm = () => {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl">Create an account</CardTitle>
+        <CardTitle className="text-2xl">Set new password</CardTitle>
         <CardDescription>
-          Sign up for Mail Automator to start sending emails
+          Create a new password for your account
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -87,40 +87,28 @@ const SignUpForm = () => {
             <p className="text-sm">{authError}</p>
           </div>
         )}
+        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="john@example.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>New Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="••••••••" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
@@ -129,21 +117,13 @@ const SignUpForm = () => {
               )}
             />
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Sign Up"}
+              {isLoading ? "Updating..." : "Reset Password"}
             </Button>
           </form>
         </Form>
       </CardContent>
-      <CardFooter className="flex justify-center">
-        <p className="text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link to="/login" className="text-primary hover:underline">
-            Log in
-          </Link>
-        </p>
-      </CardFooter>
     </Card>
   );
 };
 
-export default SignUpForm;
+export default ResetPasswordForm;

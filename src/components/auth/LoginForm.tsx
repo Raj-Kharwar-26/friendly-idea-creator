@@ -10,6 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { AlertCircle } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -22,6 +24,8 @@ const LoginForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const { login } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -33,35 +37,30 @@ const LoginForm = () => {
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
+    setAuthError(null);
     
     try {
-      // In a real implementation, you would authenticate with a backend
-      // For demo purposes, we'll simulate a successful login
-      console.log('Login data:', data);
+      const { error } = await login(data.email, data.password);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // For demo purposes, just store the user info in localStorage
-      localStorage.setItem('user', JSON.stringify({
-        id: Date.now().toString(),
-        email: data.email,
-        name: data.email.split('@')[0],
-        isAuthenticated: true
-      }));
-      
-      toast({
-        title: "Logged in successfully",
-        description: "Welcome back to Mail Automator!",
-      });
-      
-      // Navigate to dashboard
-      navigate('/dashboard');
+      if (error) {
+        setAuthError(error.message);
+        toast({
+          title: "Login failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Logged in successfully",
+          description: "Welcome back to Mail Automator!",
+        });
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Login error:', error);
       toast({
         title: "Login failed",
-        description: "Invalid email or password.",
+        description: "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -78,6 +77,12 @@ const LoginForm = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {authError && (
+          <div className="bg-destructive/15 text-destructive rounded-md p-3 mb-4 flex items-center gap-2">
+            <AlertCircle size={16} />
+            <p className="text-sm">{authError}</p>
+          </div>
+        )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -106,6 +111,11 @@ const LoginForm = () => {
                 </FormItem>
               )}
             />
+            <div className="flex justify-end">
+              <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Log In"}
             </Button>
