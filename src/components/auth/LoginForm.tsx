@@ -10,8 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -25,7 +25,6 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const { login } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -39,30 +38,25 @@ const LoginForm = () => {
     setIsLoading(true);
     setAuthError(null);
     
+    toast({
+      title: "Logging in",
+      description: "Please wait while we verify your credentials...",
+    });
+    
     try {
-      // Display login attempt message
-      toast({
-        title: "Logging in",
-        description: "Please wait while we verify your credentials...",
+      // Direct approach using Supabase client
+      const { error, data: authData } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
       });
-      
-      // Extend timeout to 15 seconds and attempt login
-      const loginPromise = login(data.email, data.password);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Login request timed out. Please try again.")), 15000)
-      );
-      
-      const { error } = await Promise.race([loginPromise, timeoutPromise]) as { error: any };
       
       if (error) {
         console.error('Login error details:', error);
         let errorMessage = error.message;
         
-        // More user-friendly error messages
+        // User-friendly error messages
         if (errorMessage.includes('Invalid login credentials')) {
           errorMessage = "Invalid email or password. Please check your credentials and try again.";
-        } else if (errorMessage.includes('timed out')) {
-          errorMessage = "Login request timed out. The server might be busy. Please try again.";
         }
         
         setAuthError(errorMessage);
