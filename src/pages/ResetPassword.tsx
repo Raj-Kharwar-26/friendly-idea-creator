@@ -8,19 +8,65 @@ import { supabase } from '@/integrations/supabase/client';
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
-    // Check if there's a reset token in the URL
-    const hash = window.location.hash;
-    const params = new URLSearchParams(hash.substring(1)); // Remove the # character
-    const token = params.get('access_token');
+    // Extract the access token from the URL
+    const extractToken = () => {
+      const hash = window.location.hash;
+      
+      if (!hash || hash.length === 0) {
+        console.log('No hash found in URL');
+        return null;
+      }
+      
+      try {
+        // Remove the # character and parse params
+        const params = new URLSearchParams(hash.substring(1));
+        const token = params.get('access_token');
+        
+        if (!token) {
+          console.log('No access_token found in hash params');
+        } else {
+          console.log('Token found in URL');
+        }
+        
+        return token;
+      } catch (error) {
+        console.error('Error parsing URL hash:', error);
+        return null;
+      }
+    };
+
+    const token = extractToken();
     
     if (!token) {
       // If no token is found, redirect to forgot password page
+      console.log('No valid token found, redirecting to forgot-password');
       navigate('/forgot-password');
     } else {
-      // Token found, allow user to reset password
-      setLoading(false);
+      // Set session with the token to allow password reset
+      const setSession = async () => {
+        try {
+          const { error } = await supabase.auth.setSession({
+            access_token: token,
+            refresh_token: '',
+          });
+          
+          if (error) {
+            console.error('Error setting session:', error);
+            navigate('/forgot-password');
+          } else {
+            setHasToken(true);
+            setLoading(false);
+          }
+        } catch (error) {
+          console.error('Exception setting session:', error);
+          navigate('/forgot-password');
+        }
+      };
+      
+      setSession();
     }
   }, [navigate]);
 
@@ -45,7 +91,7 @@ const ResetPassword = () => {
         </Link>
         <p className="text-muted-foreground mt-2">Set your new password</p>
       </div>
-      <ResetPasswordForm />
+      {hasToken && <ResetPasswordForm />}
     </div>
   );
 };

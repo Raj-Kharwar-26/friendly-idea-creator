@@ -40,27 +40,43 @@ const LoginForm = () => {
     setAuthError(null);
     
     try {
-      const { error } = await login(data.email, data.password);
+      // Add timeout for login attempt
+      const loginPromise = login(data.email, data.password);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Login request timed out")), 10000)
+      );
+      
+      const { error } = await Promise.race([loginPromise, timeoutPromise]) as { error: any };
       
       if (error) {
-        setAuthError(error.message);
+        console.error('Login error details:', error);
+        let errorMessage = error.message;
+        
+        // More user-friendly error messages
+        if (errorMessage.includes('Invalid login credentials')) {
+          errorMessage = "Invalid email or password. Please check your credentials and try again.";
+        }
+        
+        setAuthError(errorMessage);
         toast({
           title: "Login failed",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
       } else {
+        console.log('Login successful, redirecting to dashboard');
         toast({
           title: "Logged in successfully",
           description: "Welcome back to Mail Automator!",
         });
         navigate('/dashboard');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      setAuthError(error.message || "An unexpected error occurred. Please try again.");
       toast({
         title: "Login failed",
-        description: "An unexpected error occurred.",
+        description: error.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
