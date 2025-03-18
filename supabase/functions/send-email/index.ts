@@ -1,6 +1,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import * as nodemailer from 'https://esm.sh/nodemailer@6.9.9';
 
 // Configure CORS headers
 const corsHeaders = {
@@ -77,9 +78,12 @@ serve(async (req) => {
       });
     }
     
-    // Get SMTP configuration if using own email
+    // Get SMTP configuration based on sendOption
     let smtpConfig = null;
+    let fromEmail = '';
+    
     if (sendOption === 'own') {
+      // Get user's SMTP config
       const { data: smtp, error: smtpError } = await supabase
         .from('smtp_configs')
         .select('*')
@@ -94,22 +98,42 @@ serve(async (req) => {
         });
       }
       
-      smtpConfig = smtp;
-    }
-    
-    // Get temporary email configuration if using temp email
-    let tempEmailConfig = null;
-    if (sendOption === 'temp') {
+      smtpConfig = {
+        host: smtp.host,
+        port: Number(smtp.port),
+        secure: smtp.encryption === 'ssl',
+        auth: {
+          user: smtp.username,
+          pass: smtp.password
+        }
+      };
+      
+      fromEmail = senderEmail || smtp.username;
+    } else {
+      // Get temp email config or use Brevo default
       const { data: tempEmail, error: tempEmailError } = await supabase
         .from('temp_email_configs')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       
       if (!tempEmailError && tempEmail) {
-        tempEmailConfig = tempEmail;
+        // Use temp email configuration
+        fromEmail = `Mail Automator <no-reply@${tempEmail.domain}>`;
+      } else {
+        // Use Brevo default SMTP configuration
+        smtpConfig = {
+          host: 'smtp-relay.brevo.com',
+          port: 587,
+          secure: false,
+          auth: {
+            user: Deno.env.get('BREVO_USER') || 'default@example.com',
+            pass: Deno.env.get('BREVO_PASSWORD') || 'default_password'
+          }
+        };
+        
+        fromEmail = 'Mail Automator <no-reply@mailautomator.com>';
       }
-      // We don't require temp email config as we can use a mock service
     }
     
     // Parse scheduled time if provided
@@ -168,37 +192,81 @@ serve(async (req) => {
       });
     }
     
-    // Simulate sending email
-    console.log('Sending email with config:', sendOption === 'own' ? smtpConfig : 'Temporary email service');
-    
-    // Update send count - in a real implementation, this would happen after actual sending
-    const sentCount = recipients.length;
-    
-    // Update campaign status and stats
-    await supabase
-      .from('email_campaigns')
-      .update({ status: 'sent' })
-      .eq('id', campaign.id);
-    
-    await supabase
-      .from('email_stats')
-      .update({ sent: sentCount })
-      .eq('campaign_id', campaign.id);
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: 'Email sent successfully',
-      campaignId: campaign.id,
-      sentCount
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    try {
+      // Create Nodemailer transporter
+      const transporter = nodemailer.createTransport(smtpConfig);
+      
+      // Send email to all recipients
+      const sentMails = [];
+      const failedMails = [];
+      
+      for (const recipient of recipients) {
+        try {
+          console.log(`Sending email to ${recipient}...`);
+          
+          const info = await transporter.sendMail({
+            from: fromEmail,
+            to: recipient,
+            subject: subject,
+            text: message.replace(/<[^>]*>/g, ''), // Plain text version
+            html: message,
+            // If we had real attachments, we would add them here
+          });
+          
+          console.log(`Email sent to ${recipient}:`, info.messageId);
+          sentMails.push(recipient);
+        } catch (sendError) {
+          console.error(`Failed to send email to ${recipient}:`, sendError);
+          failedMails.push(recipient);
+        }
+      }
+      
+      // Update campaign status and stats
+      await supabase
+        .from('email_campaigns')
+        .update({ status: sentMails.length > 0 ? 'sent' : 'failed' })
+        .eq('id', campaign.id);
+      
+      await supabase
+        .from('email_stats')
+        .update({ 
+          sent: sentMails.length,
+          failed: failedMails.length
+        })
+        .eq('campaign_id', campaign.id);
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Email sending process completed',
+        campaignId: campaign.id,
+        sentCount: sentMails.length,
+        failedCount: failedMails.length
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (emailError) {
+      console.error('Error sending email with Nodemailer:', emailError);
+      
+      // Update campaign status
+      await supabase
+        .from('email_campaigns')
+        .update({ status: 'failed' })
+        .eq('id', campaign.id);
+      
+      return new Response(JSON.stringify({ 
+        error: 'Failed to send email', 
+        details: emailError.message || 'Unknown error'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
   } catch (error) {
     console.error('Error in send-email function:', error);
     
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error', details: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

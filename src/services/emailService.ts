@@ -63,7 +63,7 @@ export const getSmtpConfig = async (): Promise<SmtpConfig | null> => {
       port: data.port,
       username: data.username,
       password: data.password,
-      encryption: data.encryption
+      encryption: data.encryption as 'none' | 'ssl' | 'tls'
     };
   } catch (error) {
     console.error('Error parsing SMTP config:', error);
@@ -74,8 +74,12 @@ export const getSmtpConfig = async (): Promise<SmtpConfig | null> => {
 // Save SMTP config to Supabase
 export const saveSmtpConfig = async (config: SmtpConfig): Promise<boolean> => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
     const { error } = await supabase.from('smtp_configs').upsert(
       {
+        user_id: user.id,
         host: config.host,
         port: config.port,
         username: config.username,
@@ -123,8 +127,12 @@ export const getTempEmailConfig = async (): Promise<TempEmailConfig | null> => {
 // Save temporary email API config to Supabase
 export const saveTempEmailConfig = async (config: TempEmailConfig): Promise<boolean> => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
     const { error } = await supabase.from('temp_email_configs').upsert(
       {
+        user_id: user.id,
         api_key: config.apiKey,
         domain: config.domain
       },
