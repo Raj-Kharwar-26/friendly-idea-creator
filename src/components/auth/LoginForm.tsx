@@ -40,10 +40,16 @@ const LoginForm = () => {
     setAuthError(null);
     
     try {
-      // Add timeout for login attempt
+      // Display login attempt message
+      toast({
+        title: "Logging in",
+        description: "Please wait while we verify your credentials...",
+      });
+      
+      // Extend timeout to 15 seconds and attempt login
       const loginPromise = login(data.email, data.password);
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Login request timed out")), 10000)
+        setTimeout(() => reject(new Error("Login request timed out. Please try again.")), 15000)
       );
       
       const { error } = await Promise.race([loginPromise, timeoutPromise]) as { error: any };
@@ -55,6 +61,8 @@ const LoginForm = () => {
         // More user-friendly error messages
         if (errorMessage.includes('Invalid login credentials')) {
           errorMessage = "Invalid email or password. Please check your credentials and try again.";
+        } else if (errorMessage.includes('timed out')) {
+          errorMessage = "Login request timed out. The server might be busy. Please try again.";
         }
         
         setAuthError(errorMessage);
@@ -73,10 +81,11 @@ const LoginForm = () => {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setAuthError(error.message || "An unexpected error occurred. Please try again.");
+      const errorMessage = error.message || "An unexpected error occurred. Please try again.";
+      setAuthError(errorMessage);
       toast({
         title: "Login failed",
-        description: error.message || "An unexpected error occurred. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
