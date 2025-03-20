@@ -107,6 +107,83 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Password Reset Routes
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Generate a password reset token
+    const resetToken = jwt.sign(
+      { id: user._id },
+      JWT_SECRET + user.password, // Use user's hashed password as part of the secret for added security
+      { expiresIn: '1h' }
+    );
+    
+    // In a real-world application, you would send an email with the reset link
+    // For this demo, we'll just return the token
+    res.json({ 
+      message: 'Password reset link sent to your email',
+      // Only for demo purposes:
+      resetUrl: `http://localhost:5173/reset-password?token=${resetToken}`
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Server error processing request' });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { password, token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ error: 'Invalid or missing token' });
+    }
+    
+    // Verify token
+    let decoded;
+    try {
+      // We need to get the user to verify with their old password
+      // First decode without verification to get the user ID
+      const decodedTemp = jwt.decode(token);
+      if (!decodedTemp || !decodedTemp.id) {
+        return res.status(400).json({ error: 'Invalid token' });
+      }
+      
+      // Find user
+      const user = await User.findById(decodedTemp.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Now verify with the complete secret
+      decoded = jwt.verify(token, JWT_SECRET + user.password);
+      
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      
+      // Update user password
+      user.password = hashedPassword;
+      await user.save();
+      
+      res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return res.status(400).json({ error: 'Token is invalid or has expired' });
+    }
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Server error processing request' });
+  }
+});
+
 // Protected route example
 app.get('/api/auth/user', async (req, res) => {
   try {

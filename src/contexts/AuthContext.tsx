@@ -16,6 +16,8 @@ type AuthContextType = {
   signup: (email: string, password: string, name: string) => Promise<{ error: any }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  resetPassword: (email: string) => Promise<{ error: any }>;
+  updatePassword: (password: string) => Promise<{ error: any }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -100,6 +102,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await authService.resetPassword(email);
+      
+      if (error) {
+        return { error: { message: error } };
+      }
+      
+      return { error: null };
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      return { error: { message: error.message || 'An unexpected error occurred' } };
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    try {
+      // Get token from URL or session storage
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token') || sessionStorage.getItem('resetToken') || '';
+      
+      if (!token) {
+        return { error: { message: 'Reset token not found' } };
+      }
+      
+      const { error } = await authService.updatePassword(password, token);
+      
+      if (error) {
+        return { error: { message: error } };
+      }
+      
+      // Clear the token from session storage if it exists there
+      sessionStorage.removeItem('resetToken');
+      
+      return { error: null };
+    } catch (error: any) {
+      console.error('Password update error:', error);
+      return { error: { message: error.message || 'An unexpected error occurred' } };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -108,6 +151,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         signup,
         logout,
+        resetPassword,
+        updatePassword,
         isAuthenticated: !!user?.id
       }}
     >

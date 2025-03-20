@@ -86,5 +86,34 @@ export const authService = {
         error: error.response?.data?.error || 'Failed to fetch user profile.' 
       };
     }
+  },
+
+  // Request password reset
+  resetPassword: async (email: string) => {
+    try {
+      const response = await api.post('/auth/forgot-password', { email });
+      return { data: response.data, error: null };
+    } catch (error: any) {
+      return { 
+        data: null, 
+        error: error.response?.data?.error || 'Failed to request password reset.' 
+      };
+    }
+  },
+
+  // Update password (when user has reset token)
+  updatePassword: async (password: string, token: string) => {
+    try {
+      const response = await api.post('/auth/reset-password', { 
+        password,
+        token
+      });
+      return { data: response.data, error: null };
+    } catch (error: any) {
+      return { 
+        data: null, 
+        error: error.response?.data?.error || 'Failed to update password.' 
+      };
+    }
   }
 };
