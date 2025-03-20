@@ -41,14 +41,17 @@ const SignUpForm = () => {
     setIsLoading(true);
     setAuthError(null);
     
+    console.log('Form submitted with data:', data);
+    
     try {
       const { error } = await signup(data.email, data.password, data.name);
       
       if (error) {
-        setAuthError(error.message);
+        console.error('Registration error:', error);
+        setAuthError(error.message || 'Registration failed. Please try again.');
         toast({
           title: "Registration failed",
-          description: error.message,
+          description: error.message || 'An error occurred during registration.',
           variant: "destructive",
         });
       } else {

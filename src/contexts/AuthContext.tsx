@@ -81,16 +81,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await authService.signup(name, email, password);
       
       if (error) {
+        console.log('Signup error from service:', error);
         return { error: { message: error } };
       }
       
-      setUser({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email
-      });
-      
-      return { error: null };
+      if (data && data.user) {
+        setUser({
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email
+        });
+        
+        return { error: null };
+      } else {
+        console.error('Signup response missing user data');
+        return { error: { message: 'Invalid response from server' } };
+      }
     } catch (error: any) {
       console.error('Signup error:', error);
       return { error: { message: error.message || 'An unexpected error occurred' } };

@@ -24,6 +24,15 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
+
 // Auth service functions
 export const authService = {
   // Login user
@@ -45,12 +54,23 @@ export const authService = {
   // Register a new user
   signup: async (name: string, email: string, password: string) => {
     try {
+      console.log('Signup attempt with:', { name, email });
       const response = await api.post('/auth/signup', { name, email, password });
+      console.log('Signup response:', response.data);
+      
       // Store token in localStorage
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      return { data: response.data, error: null };
+      if (response.data && response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        return { data: response.data, error: null };
+      } else {
+        return { 
+          data: null, 
+          error: 'Invalid response from server. Missing token or user data.' 
+        };
+      }
     } catch (error: any) {
+      console.error('Signup error details:', error.response?.data || error.message);
       return { 
         data: null, 
         error: error.response?.data?.error || 'Registration failed. Please try again.' 
