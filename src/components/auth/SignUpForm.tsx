@@ -57,14 +57,16 @@ const SignUpForm = () => {
           description: "Welcome to Mail Automator!",
         });
         
-        // Navigate to dashboard (auth context will handle the session)
+        // Navigate to dashboard
         navigate('/dashboard');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
+      const errorMessage = error.message || "An unexpected error occurred. Please try again.";
+      setAuthError(errorMessage);
       toast({
         title: "Registration failed",
-        description: "There was a problem creating your account.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

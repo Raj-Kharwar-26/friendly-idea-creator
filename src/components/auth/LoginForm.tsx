@@ -10,8 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { AlertCircle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -25,6 +25,7 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const { login } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -44,25 +45,14 @@ const LoginForm = () => {
     });
     
     try {
-      // Direct approach using Supabase client
-      const { error, data: authData } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
+      const { error } = await login(data.email, data.password);
       
       if (error) {
         console.error('Login error details:', error);
-        let errorMessage = error.message;
-        
-        // User-friendly error messages
-        if (errorMessage.includes('Invalid login credentials')) {
-          errorMessage = "Invalid email or password. Please check your credentials and try again.";
-        }
-        
-        setAuthError(errorMessage);
+        setAuthError(error.message);
         toast({
           title: "Login failed",
-          description: errorMessage,
+          description: error.message,
           variant: "destructive",
         });
       } else {
