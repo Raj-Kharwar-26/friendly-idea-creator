@@ -41,21 +41,14 @@ const SignUpForm = () => {
     setIsLoading(true);
     setAuthError(null);
     
-    console.log('Form submitted with data:', data);
-    toast({
-      title: "Creating account",
-      description: "Please wait while we set up your account...",
-    });
-    
     try {
       const { error } = await signup(data.email, data.password, data.name);
       
       if (error) {
-        console.error('Registration error:', error);
-        setAuthError(error.message || 'Registration failed. Please try again.');
+        setAuthError(error.message);
         toast({
           title: "Registration failed",
-          description: error.message || 'An error occurred during registration.',
+          description: error.message,
           variant: "destructive",
         });
       } else {
@@ -64,16 +57,14 @@ const SignUpForm = () => {
           description: "Welcome to Mail Automator!",
         });
         
-        // Navigate to dashboard
+        // Navigate to dashboard (auth context will handle the session)
         navigate('/dashboard');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Registration error:', error);
-      const errorMessage = error.message || "An unexpected error occurred. Please try again.";
-      setAuthError(errorMessage);
       toast({
         title: "Registration failed",
-        description: errorMessage,
+        description: "There was a problem creating your account.",
         variant: "destructive",
       });
     } finally {
@@ -96,10 +87,6 @@ const SignUpForm = () => {
             <p className="text-sm">{authError}</p>
           </div>
         )}
-        <div className="bg-amber-100 text-amber-800 rounded-md p-3 mb-4">
-          <p className="text-sm font-medium">API Connection</p>
-          <p className="text-xs">Trying to connect to: {import.meta.env.PROD ? '/api' : 'http://localhost:5000/api'}</p>
-        </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField

@@ -39,20 +39,28 @@ const LoginForm = () => {
     setIsLoading(true);
     setAuthError(null);
     
-    toast({
-      title: "Logging in",
-      description: "Please wait while we verify your credentials...",
-    });
-    
     try {
-      const { error } = await login(data.email, data.password);
+      // Add timeout for login attempt
+      const loginPromise = login(data.email, data.password);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Login request timed out")), 10000)
+      );
+      
+      const { error } = await Promise.race([loginPromise, timeoutPromise]) as { error: any };
       
       if (error) {
         console.error('Login error details:', error);
-        setAuthError(error.message);
+        let errorMessage = error.message;
+        
+        // More user-friendly error messages
+        if (errorMessage.includes('Invalid login credentials')) {
+          errorMessage = "Invalid email or password. Please check your credentials and try again.";
+        }
+        
+        setAuthError(errorMessage);
         toast({
           title: "Login failed",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
       } else {
@@ -65,11 +73,10 @@ const LoginForm = () => {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      const errorMessage = error.message || "An unexpected error occurred. Please try again.";
-      setAuthError(errorMessage);
+      setAuthError(error.message || "An unexpected error occurred. Please try again.");
       toast({
         title: "Login failed",
-        description: errorMessage,
+        description: error.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -92,10 +99,6 @@ const LoginForm = () => {
             <p className="text-sm">{authError}</p>
           </div>
         )}
-        <div className="bg-amber-100 text-amber-800 rounded-md p-3 mb-4">
-          <p className="text-sm font-medium">API Connection</p>
-          <p className="text-xs">Trying to connect to: {import.meta.env.PROD ? '/api' : 'http://localhost:5000/api'}</p>
-        </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
