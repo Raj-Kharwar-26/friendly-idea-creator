@@ -42,6 +42,10 @@ const SignUpForm = () => {
     setAuthError(null);
     
     console.log('Form submitted with data:', data);
+    toast({
+      title: "Creating account",
+      description: "Please wait while we set up your account...",
+    });
     
     try {
       const { error } = await signup(data.email, data.password, data.name);
@@ -92,6 +96,10 @@ const SignUpForm = () => {
             <p className="text-sm">{authError}</p>
           </div>
         )}
+        <div className="bg-amber-100 text-amber-800 rounded-md p-3 mb-4">
+          <p className="text-sm font-medium">API Connection</p>
+          <p className="text-xs">Trying to connect to: {import.meta.env.PROD ? '/api' : 'http://localhost:5000/api'}</p>
+        </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
