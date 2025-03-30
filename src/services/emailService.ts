@@ -1,6 +1,7 @@
 
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
 export interface EmailData {
   subject: string;
@@ -58,6 +59,8 @@ export const getSmtpConfig = async (): Promise<SmtpConfig | null> => {
       return null;
     }
     
+    if (!data) return null;
+    
     return {
       host: data.host,
       port: data.port,
@@ -77,17 +80,17 @@ export const saveSmtpConfig = async (config: SmtpConfig): Promise<boolean> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
-    const { error } = await supabase.from('smtp_configs').upsert(
-      {
+    const { error } = await supabase
+      .from('smtp_configs')
+      .upsert({
         user_id: user.id,
         host: config.host,
         port: config.port,
         username: config.username,
         password: config.password,
         encryption: config.encryption
-      },
-      { onConflict: 'user_id' }
-    );
+      }, 
+      { onConflict: 'user_id' });
     
     if (error) {
       console.error('Error saving SMTP config:', error);
@@ -114,6 +117,8 @@ export const getTempEmailConfig = async (): Promise<TempEmailConfig | null> => {
       return null;
     }
     
+    if (!data) return null;
+    
     return {
       apiKey: data.api_key,
       domain: data.domain
@@ -130,14 +135,14 @@ export const saveTempEmailConfig = async (config: TempEmailConfig): Promise<bool
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
-    const { error } = await supabase.from('temp_email_configs').upsert(
-      {
+    const { error } = await supabase
+      .from('temp_email_configs')
+      .upsert({
         user_id: user.id,
         api_key: config.apiKey,
         domain: config.domain
       },
-      { onConflict: 'user_id' }
-    );
+      { onConflict: 'user_id' });
     
     if (error) {
       console.error('Error saving temporary email config:', error);
@@ -247,7 +252,7 @@ export const getEmailCampaigns = async () => {
       return [];
     }
     
-    return data;
+    return data || [];
   } catch (error) {
     console.error('Error fetching email campaigns:', error);
     return [];
